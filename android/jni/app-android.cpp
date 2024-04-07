@@ -441,7 +441,7 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 	}
 }
 
-int System_GetPropertyInt(SystemProperty prop) {
+int64_t System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_SYSTEMVERSION:
 		return androidVersion;
@@ -508,12 +508,12 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_FILE_BROWSER:
 		// It's only really needed with scoped storage, but why not make it available
 		// as far back as possible - works just fine.
-		return (androidVersion >= 19);  // when ACTION_OPEN_DOCUMENT was added
+		return (androidVersion >= 19) && (deviceType != DEVICE_TYPE_VR);  // when ACTION_OPEN_DOCUMENT was added
 	case SYSPROP_HAS_FOLDER_BROWSER:
 		// Uses OPEN_DOCUMENT_TREE to let you select a folder.
 		// Doesn't actually mean it's usable though, in many early versions of Android
 		// this dialog is complete garbage and only lets you select subfolders of the Downloads folder.
-		return (androidVersion >= 21);  // when ACTION_OPEN_DOCUMENT_TREE was added
+		return (androidVersion >= 21) && (deviceType != DEVICE_TYPE_VR);  // when ACTION_OPEN_DOCUMENT_TREE was added
 	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR:
 		return false;  // Update if we add support in FileUtil.cpp: OpenFileInEditor
 	case SYSPROP_APP_GOLD:
@@ -733,9 +733,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	exitRenderLoop = false;
 	androidVersion = jAndroidVersion;
 	deviceType = jdeviceType;
-	if (deviceType == DEVICE_TYPE_VR) {
-		SetVREnabled(true);
-	}
 
 	Path apkPath(GetJavaString(env, japkpath));
 	g_VFS.Register("", ZipFileReader::Create(apkPath, "assets/"));
@@ -1100,7 +1097,7 @@ void System_Notify(SystemNotification notification) {
 	}
 }
 
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
 	switch (type) {
 	case SystemRequestType::EXIT_APP:
 		PushCommand("finish", "");

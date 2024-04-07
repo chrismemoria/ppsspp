@@ -649,9 +649,9 @@ void __IoInit() {
 
 	// TODO(scoped): This won't work if memStickDirectory points at the contents of /PSP...
 #if defined(USING_WIN_UI) || defined(APPLE)
-	auto flash0System = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, g_Config.flash0Directory, FileSystemFlags::FLASH));
+	auto flash0System = std::make_shared<DirectoryFileSystem>(&pspFileSystem, g_Config.flash0Directory, FileSystemFlags::FLASH);
 #else
-	auto flash0System = std::shared_ptr<IFileSystem>(new VFSFileSystem(&pspFileSystem, "flash0"));
+	auto flash0System = std::make_shared<VFSFileSystem>(&pspFileSystem, "flash0");
 #endif
 	FileSystemFlags memstickFlags = FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD;
 
@@ -662,7 +662,7 @@ void __IoInit() {
 		memstickFlags |= FileSystemFlags::STRIP_PSP;
 	}
 
-	auto memstickSystem = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, g_Config.memStickDirectory, memstickFlags));
+	auto memstickSystem = std::make_shared<DirectoryFileSystem>(&pspFileSystem, g_Config.memStickDirectory, memstickFlags);
 
 	pspFileSystem.Mount("ms0:", memstickSystem);
 	pspFileSystem.Mount("fatms0:", memstickSystem);
@@ -675,7 +675,7 @@ void __IoInit() {
 		const std::string gameId = g_paramSFO.GetDiscID();
 		const Path exdataPath = GetSysDirectory(DIRECTORY_EXDATA) / gameId;
 		if (File::Exists(exdataPath)) {
-			auto exdataSystem = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, exdataPath, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD));
+			auto exdataSystem = std::make_shared<DirectoryFileSystem>(&pspFileSystem, exdataPath, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
 			pspFileSystem.Mount("exdata0:", exdataSystem);
 			INFO_LOG(SCEIO, "Mounted exdata/%s/ under memstick for exdata0:/", gameId.c_str());
 		} else {
@@ -1325,7 +1325,8 @@ static u32 sceIoGetDevType(int id) {
 		WARN_LOG(SCEIO, "sceIoGetDevType(%d - %s)", id, f->fullpath.c_str());
 		if (f->isTTY)
 			result = (u32)PSPDevType::FILE;
-		result = (u32)pspFileSystem.DevType(f->handle) & (u32)PSPDevType::EMU_MASK;
+		else
+			result = (u32)pspFileSystem.DevType(f->handle) & (u32)PSPDevType::EMU_MASK;
 	} else {
 		ERROR_LOG(SCEIO, "sceIoGetDevType: unknown id %d", id);
 		result = SCE_KERNEL_ERROR_BADF;
