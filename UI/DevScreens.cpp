@@ -452,34 +452,6 @@ UI::EventReturn JitDebugScreen::OnDisableAll(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-const char *GetCompilerABI() {
-#if PPSSPP_ARCH(ARMV7)
-	return "armeabi-v7a";
-#elif PPSSPP_ARCH(ARM)
-	return "armeabi";
-#elif PPSSPP_ARCH(ARM64)
-	return "arm64";
-#elif PPSSPP_ARCH(X86)
-	return "x86";
-#elif PPSSPP_ARCH(AMD64)
-	return "x86-64";
-#elif PPSSPP_ARCH(RISCV64)
-    //https://github.com/riscv/riscv-toolchain-conventions#cc-preprocessor-definitions
-    //https://github.com/riscv/riscv-c-api-doc/blob/master/riscv-c-api.md#abi-related-preprocessor-definitions
-    #if defined(__riscv_float_abi_single)
-        return "lp64f";
-    #elif defined(__riscv_float_abi_double)
-        return "lp64d";
-    #elif defined(__riscv_float_abi_quad)
-        return "lp64q";
-    #elif defined(__riscv_float_abi_soft)
-        return "lp64";
-    #endif
-#else
-	return "other";
-#endif
-}
-
 void SystemInfoScreen::update() {
 	TabbedUIDialogScreenWithGameBackground::update();
 	g_OSD.NudgeSidebar();
@@ -870,8 +842,14 @@ void SystemInfoScreen::CreateInternalsTab(UI::ViewGroup *internals) {
 		g_OSD.Show(OSDType::MESSAGE_INFO, "Info");
 		return UI::EVENT_DONE;
 	});
+	// This one is clickable
 	internals->Add(new Choice(si->T("Success")))->OnClick.Add([&](UI::EventParams &) {
-		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Success");
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Success", 0.0f, "clickable");
+		g_OSD.SetClickCallback("clickable", [](bool clicked, void *) {
+			if (clicked) {
+				System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.google.com/");
+			}
+		}, nullptr);
 		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(sy->T("RetroAchievements")))->OnClick.Add([&](UI::EventParams &) {

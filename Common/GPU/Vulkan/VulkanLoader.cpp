@@ -282,6 +282,7 @@ static const char * const device_name_blacklist[] = {
 static const char * const so_names[] = {
 #if PPSSPP_PLATFORM(IOS)
 	"@executable_path/Frameworks/libMoltenVK.dylib",
+	"MoltenVK",
 #elif PPSSPP_PLATFORM(MAC)
 	"@executable_path/../Frameworks/libMoltenVK.dylib",
 #else
@@ -575,6 +576,7 @@ bool VulkanLoad(std::string *errorStr) {
 
 	if (vkCreateInstance && vkGetInstanceProcAddr && vkGetDeviceProcAddr && vkEnumerateInstanceExtensionProperties && vkEnumerateInstanceLayerProperties) {
 		INFO_LOG(G3D, "VulkanLoad: Base functions loaded.");
+		// NOTE: It's ok if vkEnumerateInstanceVersion is missing.
 		return true;
 	} else {
 		*errorStr = "Failed to load Vulkan base functions";

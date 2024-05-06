@@ -213,6 +213,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("DisableHTTPS", &g_Config.bDisableHTTPS, false, CfgFlag::DONT_SAVE),
 	ConfigSetting("AutoLoadSaveState", &g_Config.iAutoLoadSaveState, 0, CfgFlag::PER_GAME),
 	ConfigSetting("EnableCheats", &g_Config.bEnableCheats, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("EnablePlugins", &g_Config.bEnablePlugins, true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("CwCheatRefreshRate", &g_Config.iCwCheatRefreshIntervalMs, 77, CfgFlag::PER_GAME),
 	ConfigSetting("CwCheatScrollPosition", &g_Config.fCwCheatScrollPosition, 0.0f, CfgFlag::PER_GAME),
 	ConfigSetting("GameListScrollPosition", &g_Config.fGameListScrollPosition, 0.0f, CfgFlag::DEFAULT),
@@ -602,6 +603,7 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("D3D11Device", &g_Config.sD3D11Device, "", CfgFlag::DEFAULT),
 #endif
 	ConfigSetting("CameraDevice", &g_Config.sCameraDevice, "", CfgFlag::DEFAULT),
+	ConfigSetting("CameraMirrorHorizontal", &g_Config.bCameraMirrorHorizontal, false, CfgFlag::DEFAULT),
 	ConfigSetting("AndroidFramerateMode", &g_Config.iDisplayFramerateMode, 1, CfgFlag::DEFAULT),
 	ConfigSetting("VendorBugChecksEnabled", &g_Config.bVendorBugChecksEnabled, true, CfgFlag::DONT_SAVE),
 	ConfigSetting("UseGeometryShader", &g_Config.bUseGeometryShader, false, CfgFlag::PER_GAME),
@@ -698,6 +700,7 @@ static const ConfigSetting soundSettings[] = {
 	ConfigSetting("AchievementSoundVolume", &g_Config.iAchievementSoundVolume, 6, CfgFlag::PER_GAME),
 	ConfigSetting("AudioDevice", &g_Config.sAudioDevice, "", CfgFlag::DEFAULT),
 	ConfigSetting("AutoAudioDevice", &g_Config.bAutoAudioDevice, true, CfgFlag::DEFAULT),
+	ConfigSetting("UseNewAtrac", &g_Config.bUseNewAtrac, false, CfgFlag::DEFAULT),
 };
 
 static bool DefaultShowTouchControls() {
@@ -1224,6 +1227,13 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		ResetControlLayout();
 	}
 
+	// Force JIT setting to a valid value for the current system configuration.
+	if (!System_GetPropertyBool(SYSPROP_CAN_JIT)) {
+		if (g_Config.iCpuCore == (int)CPUCore::JIT || g_Config.iCpuCore == (int)CPUCore::JIT_IR) {
+			g_Config.iCpuCore = (int)CPUCore::IR_INTERPRETER;
+		}
+	}
+
 	const char *gitVer = PPSSPP_GIT_VERSION;
 	Version installed(gitVer);
 	Version upgrade(upgradeVersion);
@@ -1516,9 +1526,9 @@ void Config::RemoveRecent(const std::string &file) {
 	private_->ResetRecentIsosThread();
 	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 	
-	const auto &filename = File::ResolvePath(file);
+	const std::string filename = File::ResolvePath(file);
 	auto iter = std::remove_if(recentIsos.begin(), recentIsos.end(), [filename](const auto &str) {
-		const auto &recent = File::ResolvePath(str);
+		const std::string recent = File::ResolvePath(str);
 		return filename == recent;
 	});
 	// remove_if is weird.
