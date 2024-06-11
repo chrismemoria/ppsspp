@@ -168,24 +168,26 @@ void PathBrowser::HandlePath() {
 				break;
 			}
 			lastPath = pendingPath_;
-			bool success = false;
 			if (lastPath.Type() == PathType::HTTP) {
 				guard.unlock();
 				results.clear();
-				success = LoadRemoteFileList(lastPath, userAgent_, &pendingCancel_, results);
+				success_ = LoadRemoteFileList(lastPath, userAgent_, &pendingCancel_, results);
 				guard.lock();
 			} else if (lastPath.empty()) {
 				results.clear();
-				success = true;
+				success_ = true;
 			} else {
 				guard.unlock();
 				results.clear();
-				success = File::GetFilesInDir(lastPath, &results, nullptr);
+				success_ = File::GetFilesInDir(lastPath, &results, nullptr);
+				if (!success_) {
+					WARN_LOG(IO, "PathBrowser: Failed to list directory: %s", lastPath.c_str());
+				}
 				guard.lock();
 			}
 
 			if (pendingPath_ == lastPath) {
-				if (success && !pendingCancel_) {
+				if (success_ && !pendingCancel_) {
 					pendingFiles_ = results;
 				}
 				pendingPath_.clear();
@@ -207,19 +209,28 @@ bool PathBrowser::IsListingReady() {
 }
 
 std::string PathBrowser::GetFriendlyPath() const {
-	std::string str = GetPath().ToVisualString();
 	// Show relative to memstick root if there.
 	if (path_.StartsWith(aliasMatch_)) {
-		return aliasDisplay_ + str.substr(aliasMatch_.size());
+		std::string p;
+		if (aliasMatch_.ComputePathTo(path_, p)) {
+			return aliasDisplay_ + p;
+		}
+		std::string str = path_.ToString();
+		if (aliasMatch_.size() < str.length()) {
+			return aliasDisplay_ + str.substr(aliasMatch_.size());
+		} else {
+			return aliasDisplay_;
+		}
 	}
 
-#if PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC)
+    std::string str = path_.ToString();
+#if !PPSSPP_PLATFORM(ANDROID) && (PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC))
 	char *home = getenv("HOME");
 	if (home != nullptr && !strncmp(str.c_str(), home, strlen(home))) {
-		str = std::string("~") + str.substr(strlen(home));
+		return std::string("~") + str.substr(strlen(home));
 	}
 #endif
-	return str;
+	return path_.ToVisualString();
 }
 
 bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *filter, bool *cancel) {

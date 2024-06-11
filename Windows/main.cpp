@@ -528,6 +528,11 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
 		return true;
 	}
+	case SystemRequestType::SET_KEEP_SCREEN_BRIGHT:
+	{
+		MainWindow::SetKeepScreenBright(param3 != 0);
+		return true;
+	}
 	case SystemRequestType::INPUT_TEXT_MODAL:
 		std::thread([=] {
 			std::string out;
@@ -635,7 +640,27 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	}
 	case SystemRequestType::CREATE_GAME_SHORTCUT:
-		return W32Util::CreateDesktopShortcut(param1, param2);
+	{
+		// Get the game info to get our hands on the icon png
+		Path gamePath(param1);
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath, GameInfoFlags::ICON);
+		Path icoPath;
+		if (info->icon.dataLoaded) {
+			// Write the icon png out as a .ICO file so the shortcut can point to it
+
+			// Savestate seems like a good enough place to put ico files.
+			Path iconFolder = GetSysDirectory(PSPDirectories::DIRECTORY_SAVESTATE);
+
+			icoPath = iconFolder / (info->id + ".ico");
+			if (!File::Exists(icoPath)) {
+				if (!W32Util::CreateICOFromPNGData((const uint8_t *)info->icon.data.data(), info->icon.data.size(), icoPath)) {
+					ERROR_LOG(SYSTEM, "ICO creation failed");
+					icoPath.clear();
+				}
+			}
+		}
+		return W32Util::CreateDesktopShortcut(param1, param2, icoPath);
+	}
 	case SystemRequestType::RUN_CALLBACK_IN_WNDPROC:
 	{
 		auto func = reinterpret_cast<void (*)(void *window, void *userdata)>(param3);
@@ -970,7 +995,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 #ifndef _DEBUG
 	// See #11719 - too many Vulkan drivers crash on basic init.
-	if (g_Config.IsBackendEnabled(GPUBackend::VULKAN, false)) {
+	if (g_Config.IsBackendEnabled(GPUBackend::VULKAN)) {
 		VulkanSetAvailable(DetectVulkanInExternalProcess());
 	}
 #endif
